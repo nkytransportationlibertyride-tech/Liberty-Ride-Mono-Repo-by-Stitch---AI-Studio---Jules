@@ -360,3 +360,96 @@ export function generateTransitUUID(prefix: string = 'e7b8c24a'): string {
   };
   return `${prefix}-${randHex(2)}-4${randHex(1).slice(1)}-b${randHex(1).slice(1)}-${randHex(6)}`;
 }
+
+/**
+ * Validates scheduled pickup date and time against Eastern Time (America/New_York)
+ */
+export function validateScheduledPickup(
+  pickupDate: string,
+  pickupTime: string,
+  currentDate: Date = new Date()
+): { valid: boolean; error?: string } {
+  if (!pickupDate || !pickupDate.trim()) {
+    return { valid: false, error: 'Pickup date is required' };
+  }
+  if (!pickupTime || !pickupTime.trim()) {
+    return { valid: false, error: 'Pickup time is required' };
+  }
+
+  // Get current date in America/New_York (YYYY-MM-DD)
+  const nyFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const todayNY = nyFormatter.format(currentDate); // Format: YYYY-MM-DD
+
+  // Direct date comparison
+  if (pickupDate < todayNY) {
+    return { valid: false, error: 'Pickup date cannot be in the past' };
+  }
+
+  // If date is today, check time if in HH:MM format
+  if (pickupDate === todayNY) {
+    const timeMatch = pickupTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2], 10);
+      const meridiem = timeMatch[3]?.toUpperCase();
+
+      if (meridiem === 'PM' && hours < 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+
+      // Current NY hour & min
+      const nyTimeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      });
+      const [curHourStr, curMinStr] = nyTimeFormatter.format(currentDate).split(':');
+      const curHours = parseInt(curHourStr, 10);
+      const curMins = parseInt(curMinStr, 10);
+
+      const scheduledTotalMins = hours * 60 + minutes;
+      const currentTotalMins = curHours * 60 + curMins;
+
+      // Allow 5 min buffer
+      if (scheduledTotalMins < currentTotalMins - 5) {
+        return { valid: false, error: 'Pickup time for today cannot be in the past' };
+      }
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Calculates the total fares paid across completed rides
+ */
+export function calculateTotalFaresPaid(
+  rides: { fareEstimate: number; status: RideStatus }[]
+): number {
+  return rides
+    .filter((r) => r.status === 'completed')
+    .reduce((sum, r) => sum + (r.fareEstimate || 0), 0);
+}
+
+/**
+ * Formats a scheduled date and time into a clear Eastern Time string
+ */
+export function formatScheduledDateTime(dateStr: string, timeStr: string): string {
+  if (!dateStr) return timeStr || 'Scheduled';
+  
+  // Format dateStr (e.g. 2026-10-28)
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return `${dateStr} ${timeStr}`;
+
+  const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const formattedDate = `${monthNames[dateObj.getUTCMonth()]} ${dateObj.getUTCDate()}, ${dateObj.getUTCFullYear()}`;
+
+  return `${formattedDate} • ${timeStr} EDT`;
+}
+

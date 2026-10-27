@@ -11,15 +11,20 @@ import {
   ServiceCategory,
   formatUSPhone,
   matchNKYLocation,
+  validateScheduledPickup,
+  formatScheduledDateTime,
+  formatEasternTime,
 } from '../../utils/transit';
 
 export const RideBookingView: React.FC = () => {
   const { setRiderTab, createNewRide } = useTransit();
 
+  const todayISO = new Date().toISOString().split('T')[0];
   const [pickup, setPickup] = useState('3038 Dixie Hwy, Erlanger, KY 41018');
   const [dropoff, setDropoff] = useState('St. Elizabeth Healthcare, Edgewood, KY 41017');
-  const [pickupDate, setPickupDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [pickupTime, setPickupTime] = useState('04:30 PM EDT');
+  const [isScheduledMode, setIsScheduledMode] = useState(false);
+  const [pickupDate, setPickupDate] = useState(() => todayISO);
+  const [pickupTime, setPickupTime] = useState('04:30 PM');
   const [category, setCategory] = useState<ServiceCategory>('medical');
   const [phone, setPhone] = useState('(859) 555-0142');
   const [notes, setNotes] = useState('');
@@ -69,6 +74,14 @@ export const RideBookingView: React.FC = () => {
       return;
     }
 
+    if (isScheduledMode) {
+      const scheduleValidation = validateScheduledPickup(pickupDate, pickupTime);
+      if (!scheduleValidation.valid) {
+        setErrorBanner(scheduleValidation.error || 'Pickup date and time cannot be in the past');
+        return;
+      }
+    }
+
     setErrorBanner(null);
 
     const calc = calculateGuaranteedFare(pickup, dropoff, category);
@@ -80,6 +93,8 @@ export const RideBookingView: React.FC = () => {
       category,
       pickupDate,
       pickupTime,
+      isScheduled: isScheduledMode,
+      scheduledFor: isScheduledMode ? formatScheduledDateTime(pickupDate, pickupTime) : undefined,
       riderPhone: phone,
       notes,
       fareEstimate: calc.totalFare,
@@ -284,40 +299,170 @@ export const RideBookingView: React.FC = () => {
           </div>
         </div>
 
-        {/* Schedule Date & Time Row */}
-        <div className="flex flex-col gap-1.5">
+        {/* Pickup Schedule & Future Ride Scheduler */}
+        <div className="flex flex-col gap-2 bg-[#f5f3f3] p-3 rounded-2xl border border-neutral-200/80">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-bold text-black uppercase tracking-wider">Pickup Schedule</label>
-            <span className="text-[10px] text-neutral-500 bg-[#efeded] px-2 py-0.5 rounded-full font-bold">
+            <label className="text-[11px] font-bold text-black uppercase tracking-wider flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px] text-neutral-700">schedule</span>
+              Pickup Schedule
+            </label>
+            <span className="text-[10px] text-neutral-600 bg-white px-2 py-0.5 rounded-full font-bold border border-neutral-200">
               America/New_York (ET)
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-[#efeded] rounded-xl px-3 py-2 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-neutral-500">calendar_today</span>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] text-neutral-500 uppercase font-semibold">Date</span>
-                <input
-                  type="date"
-                  value={pickupDate}
-                  onChange={(e) => setPickupDate(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-black outline-none w-full"
-                />
-              </div>
-            </div>
-            <div className="bg-[#efeded] rounded-xl px-3 py-2 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-neutral-500">schedule</span>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] text-neutral-500 uppercase font-semibold">Pickup Window</span>
-                <input
-                  type="text"
-                  value={pickupTime}
-                  onChange={(e) => setPickupTime(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-black outline-none w-full"
-                />
-              </div>
-            </div>
+
+          {/* Mode Switcher: Immediate vs Schedule for Later */}
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-white rounded-xl border border-neutral-200">
+            <button
+              type="button"
+              onClick={() => {
+                setIsScheduledMode(false);
+                setPickupDate(todayISO);
+                setPickupTime('Immediate (< 8 min)');
+              }}
+              className={`h-9 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                !isScheduledMode
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">bolt</span>
+              <span>Ride Now</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsScheduledMode(true);
+                if (pickupTime.includes('Immediate')) {
+                  setPickupTime('04:30 PM');
+                }
+              }}
+              className={`h-9 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                isScheduledMode
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">event</span>
+              <span>Schedule Later</span>
+            </button>
           </div>
+
+          {/* Immediate Dispatch Note */}
+          {!isScheduledMode && (
+            <div className="flex items-center justify-between px-2 py-1 text-xs text-neutral-600">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#06C167] animate-pulse"></span>
+                <span>Immediate dispatch • Erlanger base active</span>
+              </div>
+              <span className="font-bold text-black">&lt; 8 min ETA</span>
+            </div>
+          )}
+
+          {/* Scheduled Future Ride Picker */}
+          {isScheduledMode && (
+            <div className="flex flex-col gap-2.5 pt-1">
+              {/* Date & Time Input Boxes */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Date Input */}
+                <div className="bg-white rounded-xl p-2.5 border border-neutral-200 flex flex-col gap-1 shadow-xs">
+                  <span className="text-[10px] text-neutral-500 uppercase font-bold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                    Pickup Date
+                  </span>
+                  <input
+                    type="date"
+                    min={todayISO}
+                    value={pickupDate}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-black outline-none w-full cursor-pointer"
+                  />
+                </div>
+
+                {/* Time Input */}
+                <div className="bg-white rounded-xl p-2.5 border border-neutral-200 flex flex-col gap-1 shadow-xs">
+                  <span className="text-[10px] text-neutral-500 uppercase font-bold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">alarm</span>
+                    Pickup Window (ET)
+                  </span>
+                  <input
+                    type="text"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    placeholder="e.g. 04:30 PM"
+                    className="bg-transparent text-xs font-bold text-black outline-none w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Date Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {[
+                  { label: 'Today', days: 0 },
+                  { label: 'Tomorrow', days: 1 },
+                  { label: '+2 Days', days: 2 },
+                  { label: '+3 Days', days: 3 },
+                  { label: '+1 Week', days: 7 },
+                ].map((chip) => {
+                  const targetDate = new Date();
+                  targetDate.setDate(targetDate.getDate() + chip.days);
+                  const iso = targetDate.toISOString().split('T')[0];
+                  const isSelected = pickupDate === iso;
+
+                  return (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => setPickupDate(iso)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                        isSelected
+                          ? 'bg-black text-white'
+                          : 'bg-white hover:bg-neutral-200 text-neutral-700 border border-neutral-200'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quick Time Window Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {['08:00 AM', '10:30 AM', '12:30 PM', '04:30 PM', '07:30 PM'].map((time) => {
+                  const isSelected = pickupTime.startsWith(time);
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => setPickupTime(`${time} EDT`)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                        isSelected
+                          ? 'bg-black text-white'
+                          : 'bg-white hover:bg-neutral-200 text-neutral-700 border border-neutral-200'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Scheduled Pre-booking Guarantee Badge */}
+              <div className="flex items-start gap-2 bg-[#e9e8e7]/60 p-2 rounded-xl text-neutral-700 text-xs">
+                <span className="material-symbols-outlined text-[16px] text-[#006d37] shrink-0 mt-0.5">
+                  verified
+                </span>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-black text-[11px]">
+                    Guaranteed Future Dispatch Lock
+                  </span>
+                  <span className="text-[10px] text-neutral-500 leading-tight mt-0.5">
+                    Your driver is assigned 30 minutes before your window with locked upfront tariff.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Service Category (4 Pills) */}

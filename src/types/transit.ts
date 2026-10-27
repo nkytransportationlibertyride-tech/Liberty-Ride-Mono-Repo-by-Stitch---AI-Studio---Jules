@@ -8,6 +8,8 @@ import { RideStatus, ServiceCategory } from '../utils/transit';
 
 export type UserRole = 'public' | 'rider' | 'owner' | 'driver';
 
+export type RiderTab = 'ride' | 'quote' | 'tracking' | 'airport-cvg' | 'history' | 'support';
+
 export interface TransitRide {
   id: string; // e.g. "LR-84920"
   uuid: string; // e.g. "e7b8c24a-89f1-4d32-b76e-91a329d50124"
@@ -17,6 +19,8 @@ export interface TransitRide {
   dropoff: string;
   pickupTime: string; // e.g. "Today, 03:30 PM EDT"
   pickupDate: string;
+  isScheduled?: boolean;
+  scheduledFor?: string; // formatted scheduled date/time
   category: ServiceCategory;
   fareEstimate: number;
   baseFare: number;

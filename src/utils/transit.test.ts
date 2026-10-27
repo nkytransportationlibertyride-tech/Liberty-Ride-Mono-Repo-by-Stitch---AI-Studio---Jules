@@ -15,6 +15,9 @@ import {
   formatEasternTime,
   matchNKYLocation,
   calculateStatuteMiles,
+  validateScheduledPickup,
+  calculateTotalFaresPaid,
+  formatScheduledDateTime,
 } from './transit';
 
 test('Location matching correctly finds verified NKY landmarks', () => {
@@ -100,3 +103,36 @@ test('Eastern Time formatting produces valid America/New_York representation', (
   assert.ok(timeStr.includes('EDT') || timeStr.includes('EST'));
   assert.ok(timeStr.includes(':'));
 });
+
+test('Scheduled Pickup Validation rejects past dates and accepts future dates', () => {
+  const refDate = new Date('2026-10-27T14:00:00Z'); // 10:00 AM EDT
+  // Past date
+  const pastRes = validateScheduledPickup('2026-10-20', '08:00 AM', refDate);
+  assert.equal(pastRes.valid, false);
+  assert.equal(pastRes.error, 'Pickup date cannot be in the past');
+
+  // Future date
+  const futureRes = validateScheduledPickup('2026-10-30', '10:00 AM', refDate);
+  assert.equal(futureRes.valid, true);
+
+  // Missing fields
+  assert.equal(validateScheduledPickup('', '10:00 AM', refDate).valid, false);
+  assert.equal(validateScheduledPickup('2026-10-30', '', refDate).valid, false);
+});
+
+test('calculateTotalFaresPaid sums only completed rides', () => {
+  const sampleRides: { fareEstimate: number; status: any }[] = [
+    { fareEstimate: 35.0, status: 'completed' },
+    { fareEstimate: 20.0, status: 'completed' },
+    { fareEstimate: 45.0, status: 'cancelled' },
+    { fareEstimate: 35.0, status: 'driver_en_route' },
+  ];
+  const total = calculateTotalFaresPaid(sampleRides);
+  assert.equal(total, 55.0);
+});
+
+test('formatScheduledDateTime creates formatted date-time string', () => {
+  const formatted = formatScheduledDateTime('2026-10-28', '04:30 PM');
+  assert.equal(formatted, 'Oct 28, 2026 • 04:30 PM EDT');
+});
+

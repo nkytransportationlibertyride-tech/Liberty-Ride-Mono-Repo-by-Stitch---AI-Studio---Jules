@@ -10,6 +10,7 @@ import { RideBookingView } from './RideBookingView';
 import { QuoteReviewView } from './QuoteReviewView';
 import { TripTrackingView } from './TripTrackingView';
 import { AirportCvgView } from './AirportCvgView';
+import { TripHistoryView } from './TripHistoryView';
 import { SupportView } from './SupportView';
 
 export const RiderApp: React.FC = () => {
@@ -38,8 +39,18 @@ export const RiderApp: React.FC = () => {
                 NKY
               </span>
             </div>
-            <span className="text-xs text-neutral-500 -mt-0.5 capitalize">
-              {riderTab === 'airport-cvg' ? 'Airport CVG' : riderTab}
+            <span className="text-xs text-neutral-500 -mt-0.5">
+              {riderTab === 'airport-cvg'
+                ? 'Airport CVG'
+                : riderTab === 'history'
+                ? 'Trip History'
+                : riderTab === 'ride'
+                ? 'Ride Booking'
+                : riderTab === 'quote'
+                ? 'Quote Review'
+                : riderTab === 'tracking'
+                ? 'Active Tracking'
+                : 'Customer Support'}
             </span>
           </div>
 
@@ -69,57 +80,76 @@ export const RiderApp: React.FC = () => {
         {riderTab === 'quote' && <QuoteReviewView />}
         {riderTab === 'tracking' && <TripTrackingView />}
         {riderTab === 'airport-cvg' && <AirportCvgView />}
+        {riderTab === 'history' && <TripHistoryView />}
         {riderTab === 'support' && <SupportView />}
       </main>
 
-      {/* Fixed Bottom Tab Bar */}
+      {/* Fixed Bottom Tab Bar (5 Tabs) */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 bg-[#fbf9f9]/95 backdrop-blur-md border-t border-neutral-200 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-safe">
-        <div className="flex justify-around items-center h-16 px-2">
+        <div className="flex justify-around items-center h-16 px-1">
+          {/* Ride Tab */}
           <button
             type="button"
             onClick={() => setRiderTab('ride')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] h-12 transition-colors ${
-              riderTab === 'ride' || riderTab === 'quote' ? 'text-black font-bold' : 'text-neutral-500'
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[50px] h-12 transition-colors ${
+              riderTab === 'ride' || riderTab === 'quote' ? 'text-black font-bold' : 'text-neutral-500 hover:text-black'
             }`}
           >
-            <span className="material-symbols-outlined text-[22px]">local_taxi</span>
-            <span className="text-[11px]">Ride</span>
+            <span className="material-symbols-outlined text-[20px]">local_taxi</span>
+            <span className="text-[10px]">Ride</span>
           </button>
 
+          {/* Tracking Tab */}
           <button
             type="button"
             onClick={() => setRiderTab('tracking')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] h-12 transition-colors ${
-              riderTab === 'tracking' ? 'text-black font-bold' : 'text-neutral-500'
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[50px] h-12 transition-colors ${
+              riderTab === 'tracking' ? 'text-black font-bold' : 'text-neutral-500 hover:text-black'
             }`}
           >
-            <span className="material-symbols-outlined text-[22px]">near_me</span>
-            <span className="text-[11px]">Tracking</span>
+            <span className="material-symbols-outlined text-[20px]">near_me</span>
+            <span className="text-[10px]">Tracking</span>
           </button>
 
+          {/* Airport CVG Tab */}
           <button
             type="button"
             onClick={() => setRiderTab('airport-cvg')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] h-12 transition-colors ${
-              riderTab === 'airport-cvg' ? 'text-black font-bold' : 'text-neutral-500'
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[50px] h-12 transition-colors ${
+              riderTab === 'airport-cvg' ? 'text-black font-bold' : 'text-neutral-500 hover:text-black'
             }`}
           >
-            <span className="material-symbols-outlined text-[22px]">flight</span>
-            <span className="text-[11px]">Airport CVG</span>
+            <span className="material-symbols-outlined text-[20px]">flight</span>
+            <span className="text-[10px]">Airport</span>
           </button>
 
+          {/* Trip History Tab */}
+          <button
+            type="button"
+            onClick={() => setRiderTab('history')}
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[50px] h-12 transition-colors ${
+              riderTab === 'history' ? 'text-black font-bold' : 'text-neutral-500 hover:text-black'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[20px]">history</span>
+            <span className="text-[10px]">History</span>
+          </button>
+
+          {/* Support Tab */}
           <button
             type="button"
             onClick={() => setRiderTab('support')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] h-12 transition-colors ${
-              riderTab === 'support' ? 'text-black font-bold' : 'text-neutral-500'
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[50px] h-12 transition-colors ${
+              riderTab === 'support' ? 'text-black font-bold' : 'text-neutral-500 hover:text-black'
             }`}
           >
-            <span className="material-symbols-outlined text-[22px]">headset_mic</span>
-            <span className="text-[11px]">Support</span>
+            <span className="material-symbols-outlined text-[20px]">headset_mic</span>
+            <span className="text-[10px]">Support</span>
           </button>
         </div>
       </nav>
     </div>
   );
 };
+
+export default RiderApp;

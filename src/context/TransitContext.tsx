@@ -5,21 +5,22 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { TransitRide, TransitDriver, UserRole } from '../types/transit';
+import { TransitRide, TransitDriver, UserRole, RiderTab } from '../types/transit';
 import { INITIAL_RIDES, INITIAL_DRIVERS } from '../data/mockData';
 import {
   RideStatus,
   formatEasternTime,
   canCancelRide,
   deriveDriverReference,
+  formatScheduledDateTime,
 } from '../utils/transit';
 
 interface TransitContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   // Rider navigation
-  riderTab: 'ride' | 'quote' | 'tracking' | 'airport-cvg' | 'support';
-  setRiderTab: (tab: 'ride' | 'quote' | 'tracking' | 'airport-cvg' | 'support') => void;
+  riderTab: RiderTab;
+  setRiderTab: (tab: RiderTab) => void;
   // Owner navigation & auth
   ownerTab: 'dashboard' | 'rides' | 'drivers' | 'security';
   setOwnerTab: (tab: 'dashboard' | 'rides' | 'drivers' | 'security') => void;
@@ -39,8 +40,11 @@ interface TransitContextType {
   selectedRideId: string;
   setSelectedRideId: (id: string) => void;
   activeRide: TransitRide | undefined;
+  scheduledRides: TransitRide[];
+  completedRides: TransitRide[];
   // Actions
   createNewRide: (ride: Partial<TransitRide>) => TransitRide;
+  scheduleRide: (ride: Partial<TransitRide>) => TransitRide;
   updateRideStatus: (id: string, status: RideStatus, note?: string) => void;
   cancelRide: (id: string, reason: string, notes?: string) => { success: boolean; error?: string };
   registerNewDriver: (name: string, phone: string) => TransitDriver;
@@ -69,7 +73,7 @@ export const TransitProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Sub-tabs
-  const [riderTab, setRiderTab] = useState<'ride' | 'quote' | 'tracking' | 'airport-cvg' | 'support'>('ride');
+  const [riderTab, setRiderTab] = useState<RiderTab>('ride');
   const [ownerTab, setOwnerTab] = useState<'dashboard' | 'rides' | 'drivers' | 'security'>('dashboard');
   const [driverTab, setDriverTab] = useState<'signin' | 'offers' | 'active-ride' | 'earnings'>('offers');
 
@@ -194,21 +198,36 @@ export const TransitProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAudioAlertsEnabled((prev) => !prev);
   };
 
-  // Ride Creation
+  // Computed Collections
+  const scheduledRides = rides.filter(
+    (r) => r.isScheduled && r.status !== 'completed' && r.status !== 'cancelled'
+  );
+  const completedRides = rides.filter((r) => r.status === 'completed');
+
+  // Ride Creation & Scheduling
   const createNewRide = (rideData: Partial<TransitRide>): TransitRide => {
     const count = rides.length + 1;
     const newId = `LR-${84920 + count}`;
     const newUuid = `${Math.random().toString(36).substring(2, 10)}-${Math.random().toString(36).substring(2, 6)}-49f1-b76e-${Math.random().toString(36).substring(2, 14)}`;
 
+    const isScheduled = Boolean(rideData.isScheduled);
+    const scheduledFor =
+      rideData.scheduledFor ||
+      (isScheduled && rideData.pickupDate
+        ? formatScheduledDateTime(rideData.pickupDate, rideData.pickupTime || '04:30 PM')
+        : undefined);
+
     const newRide: TransitRide = {
       id: newId,
       uuid: newUuid,
-      riderName: rideData.riderName || 'Local Rider',
+      riderName: rideData.riderName || 'David Miller',
       riderPhone: rideData.riderPhone || '+1 (859) 555-0142',
       pickup: rideData.pickup || '3038 Dixie Hwy, Erlanger, KY 41018',
       dropoff: rideData.dropoff || 'CVG Airport Terminal 3, Hebron, KY 41048',
       pickupTime: rideData.pickupTime || formatEasternTime(),
       pickupDate: rideData.pickupDate || new Date().toISOString().split('T')[0],
+      isScheduled,
+      scheduledFor,
       category: rideData.category || 'cvg',
       fareEstimate: rideData.fareEstimate || 35.0,
       baseFare: rideData.baseFare || 35.0,
@@ -230,15 +249,19 @@ export const TransitProvider: React.FC<{ children: React.ReactNode }> = ({ child
       auditTrail: [
         {
           state: 'requested',
-          label: 'Requested — waiting for dispatch',
+          label: isScheduled ? 'Future Transit Scheduled' : 'Requested — waiting for dispatch',
           timestamp: formatEasternTime(),
-          note: 'Direct booking intake confirmed',
+          note: isScheduled
+            ? `Advance booking registered for ${scheduledFor || rideData.pickupTime}`
+            : 'Direct booking intake confirmed',
         },
         {
           state: 'request_confirmed',
-          label: 'Request confirmed — finding your driver',
+          label: isScheduled ? 'Scheduled — Dispatch Reserved' : 'Request confirmed — finding your driver',
           timestamp: formatEasternTime(),
-          note: 'Matching nearest certified driver in Erlanger sector',
+          note: isScheduled
+            ? 'Regional vehicle reserved for scheduled pickup window'
+            : 'Matching nearest certified driver in Erlanger sector',
         },
       ],
     };
@@ -247,6 +270,10 @@ export const TransitProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSelectedRideId(newId);
     playAlertPing();
     return newRide;
+  };
+
+  const scheduleRide = (rideData: Partial<TransitRide>): TransitRide => {
+    return createNewRide({ ...rideData, isScheduled: true });
   };
 
   // Update Ride Status
@@ -397,7 +424,10 @@ export const TransitProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectedRideId,
         setSelectedRideId,
         activeRide,
+        scheduledRides,
+        completedRides,
         createNewRide,
+        scheduleRide,
         updateRideStatus,
         cancelRide,
         registerNewDriver,
