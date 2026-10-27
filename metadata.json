@@ -1,0 +1,6 @@
+{
+  "name": "Liberty Ride NKY Transit",
+  "description": "Precision on-demand mobility, guaranteed flat-rate airport transfers, and non-emergency medical transit across Northern Kentucky & CVG Airport.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
